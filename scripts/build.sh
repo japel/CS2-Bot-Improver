@@ -9,7 +9,7 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 BASE_URL="https://github.com/ed0ard/CS2-Bot-Improver/releases/download/v1.4.5/CS2BotImprover_for_Linux.zip"
 BASE_SHA256="7aa916e328209b4ac65dc2647336c7aa301cb34d6ec07b53eacf1d350ef588e8"
 # Managed plugins built from source (submodules under addons/counterstrikesharp/plugins).
-OWN_PLUGINS=(BotAI BotState)
+OWN_PLUGINS=(BotAI BotState HostageDirector)
 
 CACHE="$ROOT/.cache"; OUT="$ROOT/dist/game/csgo"
 PLUGINS="$ROOT/addons/counterstrikesharp/plugins"
@@ -35,6 +35,10 @@ for p in "${OWN_PLUGINS[@]}"; do
   mkdir -p "$dest"
   cp "$CACHE/build/$p/$p".{dll,deps.json,pdb} "$dest/"
 done
+
+# Our behavior trees (select with: mp_bot_ai_bt "scripts/ai/csbot/<name>.kv3").
+mkdir -p "$OUT/scripts/ai/csbot"
+cp "$ROOT"/bt/*.kv3 "$OUT/scripts/ai/csbot/"
 
 # BotHider's MaintainBotQuota hook breaks bot_quota on current CS2; ship it disabled.
 mkdir -p "$ROOT/dist/disabled"

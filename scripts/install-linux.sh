@@ -23,6 +23,8 @@ fi
 rsync -a --delete --exclude 'logs/' --exclude 'counterstrikesharp/configs/' "$DIST/addons/" "$G/addons/"
 rsync -a --delete "$DIST/overrides/" "$G/overrides/"
 rsync -a "$DIST/cfg/" "$G/cfg/"
+mkdir -p "$G/scripts/ai/csbot"
+rsync -a --delete "$DIST/scripts/ai/csbot/" "$G/scripts/ai/csbot/"
 
 python3 -I - "$STATE/gameinfo.gi.online" "$STATE/gameinfo.gi.bots" <<'EOF'
 import sys
