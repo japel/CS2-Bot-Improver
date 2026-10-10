@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Spectator 'drone' camera that follows the hostages (needs HostageDirector's css_hd_dump).
+
+Twice a second: read hostage + bot positions, pick the hostage being led (else the one a
+CT bot is closest to), and place a roaming camera above-behind it, smoothed.
+
+  cs2cam [--dist 260] [--height 230] [--yaw 45]
+"""
+import argparse, math, os, re, socket, time
+from pathlib import Path
+
+NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
+HOSTAGE = re.compile(r"\[hd\] hostage #(\d+) pos=(-?\d+) (-?\d+) (-?\d+) leader=(\d*)")
+BOT = re.compile(r"\[hd\] (CounterTerrorist|Terrorist)\s+\S+\s+pos=(-?\d+) (-?\d+) (-?\d+)")
+
+
+def connect():
+    cfg = dict(l.split("=", 1) for l in NETCON.read_text().split() if "=" in l)
+    s = socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=5)
+    s.sendall(f'PASS {cfg["PASS"]}\n'.encode())
+    s.setblocking(False)
+    return s
+
+
+def drain(s, secs):
+    out, end = b"", time.time() + secs
+    while time.time() < end:
+        try:
+            chunk = s.recv(65536)
+            if not chunk:
+                raise ConnectionError
+            out += chunk
+        except BlockingIOError:
+            time.sleep(0.02)
+    return out.decode("utf-8", "replace")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dist", type=float, default=260)
+    ap.add_argument("--height", type=float, default=230)
+    ap.add_argument("--yaw", type=float, default=45)
+    a = ap.parse_args()
+    pitch = math.degrees(math.atan2(a.height, a.dist))
+    yaw = math.radians(a.yaw)
+
+    cam = None
+    while True:
+        try:
+            s = connect()
+            drain(s, 0.5)       # skip replayed backlog
+            while True:
+                s.sendall(b"css_hd_dump\n")
+                text = drain(s, 0.5)
+                hostages = [(int(m[4] or 0), [int(m[1]), int(m[2]), int(m[3])]) for m in HOSTAGE.findall(text)]
+                cts = [[int(m[1]), int(m[2]), int(m[3])] for m in BOT.findall(text) if m[0] == "CounterTerrorist"]
+                if not hostages:
+                    continue
+                led = [p for leader, p in hostages if leader]
+                if led:
+                    target = led[0]
+                elif cts:
+                    target = min((p for _, p in hostages),
+                                 key=lambda p: min(math.dist(p[:2], c[:2]) for c in cts))
+                else:
+                    target = hostages[0][1]
+                goal = [target[0] - a.dist * math.cos(yaw), target[1] - a.dist * math.sin(yaw), target[2] + a.height]
+                cam = goal if cam is None or math.dist(cam, goal) > 1500 else \
+                    [c + 0.5 * (g - c) for c, g in zip(cam, goal)]
+                s.sendall((f"mp_forcecamera 0\ngameui_hide\nspec_mode 4\n"
+                           f"spec_goto {cam[0]:.0f} {cam[1]:.0f} {cam[2]:.0f} {pitch:.0f} {a.yaw:.0f}\n").encode())
+        except (OSError, ConnectionError):
+            time.sleep(2)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

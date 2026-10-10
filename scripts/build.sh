@@ -38,7 +38,7 @@ done
 
 # Our behavior trees (select with: mp_bot_ai_bt "scripts/ai/csbot/<name>.kv3").
 mkdir -p "$OUT/scripts/ai/csbot"
-cp "$ROOT"/bt/*.kv3 "$OUT/scripts/ai/csbot/"
+cp -r "$ROOT"/bt/. "$OUT/scripts/ai/csbot/"
 
 # BotHider's MaintainBotQuota hook breaks bot_quota on current CS2; ship it disabled.
 mkdir -p "$ROOT/dist/disabled"
