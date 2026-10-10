@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Run CS2 console commands over netcon and print ONLY their output.
+
+netcon replays recent console history on every connect, so raw captures (cs2con) mix old
+and new lines. This wraps the commands in unique css_hd_mark markers (HostageDirector plugin; `echo`
+output doesn't reach netcon) and returns what lies between them.
+
+  cs2cmd 'css_hd_dump' ['other cmd' ...]   [--timeout 5]
+"""
+import os, socket, sys, time, uuid
+from pathlib import Path
+
+NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
+
+
+def run(cmds, timeout=5.0):
+    cfg = dict(l.split("=", 1) for l in NETCON.read_text().split() if "=" in l)
+    tag = uuid.uuid4().hex[:12]
+    begin, end = f"CSBOT_BEGIN_{tag}", f"CSBOT_END_{tag}"
+    with socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=timeout) as s:
+        s.sendall(f'PASS {cfg["PASS"]}\ncss_hd_mark {begin}\n'.encode()
+                  + "".join(c + "\n" for c in cmds).encode()
+                  + f"css_hd_mark {end}\n".encode())
+        buf, deadline = b"", time.time() + timeout
+        while end.encode() not in buf.split(begin.encode(), 1)[-1] or begin.encode() not in buf:
+            if time.time() > deadline:
+                raise TimeoutError("no end marker from netcon")
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+    text = buf.decode("utf-8", "replace")
+    # take the LAST begin marker: replayed history may contain this tag only if it's ours
+    body = text.rsplit("[hd-mark] " + begin, 1)[1].split("[hd-mark] " + end, 1)[0]
+    return [l.rstrip("\r") for l in body.splitlines()[1:] if l.strip()]
+
+
+def main():
+    args = sys.argv[1:]
+    timeout = 5.0
+    if "--timeout" in args:
+        i = args.index("--timeout")
+        timeout = float(args[i + 1])
+        del args[i:i + 2]
+    for line in run(args, timeout):
+        print(line)
+
+
+if __name__ == "__main__":
+    main()

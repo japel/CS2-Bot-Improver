@@ -10,8 +10,8 @@ import argparse, math, os, re, socket, time
 from pathlib import Path
 
 NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
-HOSTAGE = re.compile(r"\[hd\] hostage #(\d+) pos=(-?\d+) (-?\d+) (-?\d+) leader=(\d*)")
-BOT = re.compile(r"\[hd\] (CounterTerrorist|Terrorist)\s+\S+\s+pos=(-?\d+) (-?\d+) (-?\d+)")
+HOSTAGE = re.compile(r"\[hd:cam\] hostage #(\d+) pos=(-?\d+) (-?\d+) (-?\d+) leader=(\d*)")
+BOT = re.compile(r"\[hd:cam\] (CounterTerrorist|Terrorist)\s+\S+\s+pos=(-?\d+) (-?\d+) (-?\d+)")
 
 
 def connect():
@@ -50,7 +50,7 @@ def main():
             s = connect()
             drain(s, 0.5)       # skip replayed backlog
             while True:
-                s.sendall(b"css_hd_dump\n")
+                s.sendall(b"css_hd_dump cam\n")
                 text = drain(s, 0.5)
                 hostages = [(int(m[4] or 0), [int(m[1]), int(m[2]), int(m[3])]) for m in HOSTAGE.findall(text)]
                 cts = [[int(m[1]), int(m[2]), int(m[3])] for m in BOT.findall(text) if m[0] == "CounterTerrorist"]
