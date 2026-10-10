@@ -80,7 +80,7 @@ Prints: libserver.so SHA256 vs the hash patches were verified against; per-patch
 
 ### 4.5 Build & CI
 
-- Single `Directory.Build.props`: `net8.0` (what CSS runtime ships) and one pinned CounterStrikeSharp.API version for all plugins we build.
+- Single `Directory.Build.props`: `net10.0` (CSS 1.0.376 ships .NET runtime 10.0.3) and one pinned CounterStrikeSharp.API version (1.0.376) for all plugins we build.
 - `build.sh`: builds managed plugins, downloads pinned native release artifacts (Metamod, CSS, XBribo plugins) by tag + checksum, assembles `dist/game/csgo/` matching today's release layout. Our `~/cs2-botmod/install.sh` logic (patch current `gameinfo.gi`, don't copy upstream's) moves into the repo as `scripts/install-linux.sh` with `online.sh`/`bots.sh`.
 - GitHub Actions: build + unit tests on push; release workflow uploads the Linux zip on tag.
 

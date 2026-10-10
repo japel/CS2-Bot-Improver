@@ -1,0 +1,25 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build dist
+        run: scripts/build.sh
+      - name: Package
+        run: cd dist && zip -qr ../CS2BotImprover-fork-linux.zip game disabled
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CS2BotImprover-fork-linux
+          path: CS2BotImprover-fork-linux.zip

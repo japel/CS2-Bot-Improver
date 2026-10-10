@@ -12,16 +12,16 @@
 	branch = main
 [submodule "addons/counterstrikesharp/plugins/BotState"]
 	path = addons/counterstrikesharp/plugins/BotState
-	url = https://github.com/ed0ard/CS2-Smarter-Bot.git
-	branch = main
+	url = https://github.com/japel/CS2-Smarter-Bot.git
+	branch = fork/main
 [submodule "addons/counterstrikesharp/plugins/BotAimImprover"]
 	path = addons/counterstrikesharp/plugins/BotAimImprover
 	url = https://github.com/ed0ard/CS2-Bullseye-Bot.git
 	branch = main
 [submodule "addons/counterstrikesharp/plugins/BotAI"]
 	path = addons/counterstrikesharp/plugins/BotAI
-	url = https://github.com/ed0ard/CS2-BotAI.git
-	branch = main
+	url = https://github.com/japel/CS2-BotAI.git
+	branch = fork/main
 [submodule "addons/counterstrikesharp/plugins/BotRandomizer"]
 	path = addons/counterstrikesharp/plugins/BotRandomizer
 	url = https://github.com/ed0ard/CS2-Bot-Randomizer.git

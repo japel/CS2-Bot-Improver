@@ -1,2 +1,6 @@
 **/bin/
 **/obj/
+# fork build
+/dist/
+/.cache/
+**/libs/BotControllerApi.dll
