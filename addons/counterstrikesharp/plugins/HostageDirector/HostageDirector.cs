@@ -6,13 +6,14 @@ using CounterStrikeSharp.API.Modules.Utils;
 
 namespace HostageDirector;
 
-// Phase B: directs CT bots to hostages on hostage maps.
-// Step 1 (spike): diagnostics to find a way to send a bot somewhere.
-public class HostageDirector : BasePlugin
+// Phase B: helps CT bots on hostage maps (covered pickup) + diagnostics for scripted tests.
+public partial class HostageDirector : BasePlugin
 {
     public override string ModuleName => "HostageDirector";
     public override string ModuleVersion => "0.1.0";
     public override string ModuleAuthor => "japel";
+
+    public override void Load(bool hotReload) => StartCoveredPickup();
 
     private static string Fmt(Vector? v) => v == null ? "-" : $"{v.X:F0} {v.Y:F0} {v.Z:F0}";
 

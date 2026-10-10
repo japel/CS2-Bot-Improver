@@ -26,8 +26,10 @@ rm -rf "$OUT/backup" "$OUT/gameinfo.gi"   # install script patches the live game
 # BotState references BotControllerApi.dll as a prebuilt; build it from the submodule.
 "$DOTNET" build "$ROOT/addons/BotController/csharp/BotControllerApi/BotControllerApi.csproj" \
   -c Release -o "$CACHE/BotControllerApi" -nologo -v q
-mkdir -p "$PLUGINS/BotState/libs"
-cp "$CACHE/BotControllerApi/BotControllerApi.dll" "$PLUGINS/BotState/libs/"
+for p in BotState HostageDirector; do
+  mkdir -p "$PLUGINS/$p/libs"
+  cp "$CACHE/BotControllerApi/BotControllerApi.dll" "$PLUGINS/$p/libs/"
+done
 
 for p in "${OWN_PLUGINS[@]}"; do
   "$DOTNET" build "$PLUGINS/$p/$p.csproj" -c Release -o "$CACHE/build/$p" -nologo -v q

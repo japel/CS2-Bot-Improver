@@ -22,14 +22,14 @@ fi
 
 [ "$INSTALL" = 1 ] && "$ROOT/scripts/install-linux.sh" >/dev/null
 
-# Launching while Steam pre-compiles shaders (fossilize_replay) pops a "processing shaders /
-# skip" dialog that blocks the launch until someone clicks. Wait it out (max 10 min).
-for _ in $(seq 1 120); do pgrep -f '[u]buntu12_64/fossilize_replay' >/dev/null || break; sleep 5; done
-pgrep -f '[u]buntu12_64/fossilize_replay' >/dev/null && echo "warning: Steam still processing shaders; launch may show a dialog"
+# Steam starts pre-compiling shaders (fossilize_replay) a few seconds AFTER CS2 exits, and a
+# launch during that shows a "Launching... / Skip" dialog that blocks until someone clicks.
+# Ending the fossilize processes is what Skip does, so do that while waiting for the window.
+skip_shaders() { pkill -f '[u]buntu12_64/fossilize_replay' 2>/dev/null || true; }
 
 steam steam://rungameid/730 >/dev/null 2>&1 &
 has_window() { hyprctl clients -j | python3 -Ic 'import sys,json;sys.exit(0 if any(c["class"]=="cs2" for c in json.load(sys.stdin)) else 1)'; }
-for _ in $(seq 1 120); do has_window && break; sleep 1; done
+for _ in $(seq 1 120); do has_window && break; skip_shaders; sleep 1; done
 has_window || { echo "CS2 window did not appear"; exit 1; }
 sleep 3
 W='window = "class:cs2"'
