@@ -7,7 +7,7 @@ output doesn't reach netcon) and returns what lies between them.
 
   cs2cmd 'css_hd_dump' ['other cmd' ...]   [--timeout 5]
 """
-import os, socket, sys, time, uuid
+import os, re, socket, sys, time, uuid
 from pathlib import Path
 
 NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
@@ -40,8 +40,9 @@ def run(cmds, timeout=5.0):
         l = l.rstrip("\r")
         if l.startswith(f"[hd:{tag}]"):
             out.append("[hd]" + l[len(f"[hd:{tag}]"):])
-        elif l.strip() and not l.startswith("[hd"):
-            out.append(l)          # output of non-dump commands
+        elif l.strip() and not l.startswith("[hd:") and not l.startswith("[hd-mark]") \
+                and not re.match(r"\[hd\] (hostage|players=|CounterTerrorist|Terrorist)", l):
+            out.append(l)          # output of non-dump commands (other clients' dumps dropped)
     return out
 
 
