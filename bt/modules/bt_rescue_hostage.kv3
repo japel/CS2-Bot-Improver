@@ -1,6 +1,6 @@
 <!-- kv3 encoding:text:version{e21c7f3c-8a33-41c5-9977-a76d3a32aa0d} format:generic:version{7412167c-06e9-4698-aff2-e63eb59037e7} -->
 // Valve's practice bt_pickup_hostage, but after holding use (300 consecutive use ticks) the bot carries the hostage
-// to its own spawn area (the rescue zone on cs_office) instead of repeating use forever.
+// to a CT spawn point (the rescue zone on cs_office) instead of repeating use forever.
 {
 	type = "decorator_sensor"
 	entity_type_filter = "CLASSNAME"
@@ -333,9 +333,13 @@
 				{ type = "action_use" },
 				{ type = "action_use" },
 				{ type = "action_use" },
+				// action_choose_team_spawn_area is the *enemy* spawn (hunt target), so pick
+				// CT spawn points directly; the rescue zone is there on cs_office.
 				{
-					type = "action_choose_team_spawn_area"
+					type = "decorator_sensor"
+					entity_type_filter = "CLASSNAME"
 					output = "RescueAreas"
+					class_name = "info_player_counterterrorist"
 				},
 				{
 					type = "action_choose_random_waypoint"
