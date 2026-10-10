@@ -56,6 +56,32 @@ Baseline, all patches on, 40 rounds, with `cs2live` recording:
 - First pickup 34–102 game-seconds after round start (median ~50 s): CT bots are slow to commit.
 - Kills CT 158 / T 129, T win rate 15/40 → T side is competitive; T-guard logic is lower priority than CT commitment.
 
+## 0b. Measurement lessons and later results (2026-10-11)
+
+Earlier numbers in §0a are suspect; the runner now guards against all of these:
+
+- **maxplayers 1**: maps started with `map` from the console run with maxplayers 1, so
+  CounterStrikeSharp's `GetPlayers()` sees no bots. BotState's FOV/flashbang/weapon logic,
+  BotAI's team counts and HostageDirector were blind in those runs. All our plugins now
+  scan `cs_player_controller` entities.
+- **Warmup / team drift**: a run sat in warmup after `mp_maxrounds`; others drifted to 4v6.
+  `scripts/run-rounds.sh` ends warmup, raises maxrounds, re-adds bots and aborts unless 5v5.
+- **netcon replay**: every connection replays history and receives all clients' output;
+  `scripts/cs2cmd` uses `css_hd_mark` markers and privately tagged dumps.
+- **Random bot profiles** changed skill between runs. Runs now use fixed lineups
+  (CT Vitality, T NaVi) and alternate variants (A/B/A/B).
+
+Findings:
+- Legacy CT bots *do* commit: 2–4 CTs target a hostage every round (no "decision" to patch).
+- Carriers died a median ~1 s after pickup to T bots camping the hostages → **covered
+  pickup** (HostageDirector suppresses +use near a free hostage while an enemy is seen):
+  42 rounds each, alternating: rounds with pickup 15 vs 10, rescue wins 4 vs 2, CT wins
+  20 vs 19. Small positive, not significant; kept on.
+- With BotState actually active, rounds with a pickup dropped to ~30% (vs 76% in a run
+  where BotState was blind) → BotState on/off A/B is the next experiment.
+- Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
+  CT bots lose every round on cs_office; parked as the long-term "own brain" track.
+
 ## 1a. Roadmap (approach)
 
 1. **Now – Director** (this spec): keep Valve's bot AI for movement/shooting; our code scopes patches per map and assigns roles/targets on top. C# on CounterStrikeSharp.

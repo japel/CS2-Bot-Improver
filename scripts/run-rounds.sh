@@ -26,7 +26,14 @@ sleep 2
 # exact 5v5 every run: restarts / warmup end move bots between teams
 q 'bot_kick all' 'bot_quota_mode normal' 'bot_quota 0'
 sleep 1
-q bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_t bot_add_t bot_add_t bot_add_t bot_add_t
+# Fixed lineups (profiles from the mod's botprofile): random bots differ in skill run to
+# run and swamped the effects we were measuring. Override with CT_BOTS / T_BOTS.
+CT_BOTS="${CT_BOTS:-apEX ZywOo ropz mezii flameZ}"
+T_BOTS="${T_BOTS:-Aleksib iM b1t w0nderful makazze}"
+adds=()
+for n in $CT_BOTS; do adds+=("bot_add_ct \"$n\""); done
+for n in $T_BOTS; do adds+=("bot_add_t \"$n\""); done
+q "${adds[@]}"
 sleep 3
 q 'css_botmod_stats_reset' 'mp_restartgame 1'
 sleep 4
