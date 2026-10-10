@@ -27,7 +27,8 @@ fi
 # Ending the fossilize processes is what Skip does, so do that while waiting for the window.
 skip_shaders() { pkill -f '[u]buntu12_64/fossilize_replay' 2>/dev/null || true; }
 
-steam steam://rungameid/730 >/dev/null 2>&1 &
+# console-started maps get maxplayers 1 (CSS GetPlayers() then misses every bot)
+steam -applaunch 730 -maxplayers 20 >/dev/null 2>&1 &
 has_window() { hyprctl clients -j | python3 -Ic 'import sys,json;sys.exit(0 if any(c["class"]=="cs2" for c in json.load(sys.stdin)) else 1)'; }
 for _ in $(seq 1 120); do has_window && break; skip_shaders; sleep 1; done
 has_window || { echo "CS2 window did not appear"; exit 1; }

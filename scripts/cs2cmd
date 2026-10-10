@@ -18,6 +18,9 @@ def run(cmds, timeout=5.0):
     tag = uuid.uuid4().hex[:12]
     begin, end = f"CSBOT_BEGIN_{tag}", f"CSBOT_END_{tag}"
     with socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=timeout) as s:
+        # netcon broadcasts every client's output, so other tools' dumps can land between
+        # our markers: give our dumps a private tag and keep only those lines.
+        cmds = [f"css_hd_dump {tag}" if c.strip() == "css_hd_dump" else c for c in cmds]
         s.sendall(f'PASS {cfg["PASS"]}\ncss_hd_mark {begin}\n'.encode()
                   + "".join(c + "\n" for c in cmds).encode()
                   + f"css_hd_mark {end}\n".encode())
@@ -32,7 +35,14 @@ def run(cmds, timeout=5.0):
     text = buf.decode("utf-8", "replace")
     # take the LAST begin marker: replayed history may contain this tag only if it's ours
     body = text.rsplit("[hd-mark] " + begin, 1)[1].split("[hd-mark] " + end, 1)[0]
-    return [l.rstrip("\r") for l in body.splitlines()[1:] if l.strip()]
+    out = []
+    for l in body.splitlines()[1:]:
+        l = l.rstrip("\r")
+        if l.startswith(f"[hd:{tag}]"):
+            out.append("[hd]" + l[len(f"[hd:{tag}]"):])
+        elif l.strip() and not l.startswith("[hd"):
+            out.append(l)          # output of non-dump commands
+    return out
 
 
 def main():

@@ -30,8 +30,18 @@ q bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_t bot_add_t bot
 sleep 3
 q 'css_botmod_stats_reset' 'mp_restartgame 1'
 sleep 4
-teams=$(python3 -I "$ROOT/scripts/cs2cmd" css_hd_dump 2>/dev/null | grep -E '^\[hd\] (CounterTerrorist|Terrorist) ' | awk '{print $2}' | sort | uniq -c | tr -s ' ' | tr '\n' ' ')
-echo "teams: $teams"
+count_teams() {
+  python3 -I "$ROOT/scripts/cs2cmd" css_hd_dump 2>/dev/null \
+    | grep -E '^\[hd\] (CounterTerrorist|Terrorist) ' | awk '{print $2}' | sort | uniq -c \
+    | tr -s ' ' | tr '\n' ' ' || true
+}
+teams=""
+for _ in $(seq 1 10); do   # bots need a moment to spawn after mp_restartgame
+  teams=$(count_teams)
+  case "$teams" in *"5 CounterTerrorist"*"5 Terrorist"*) break;; esac
+  sleep 2
+done
+echo "teams: ${teams:-none}"
 case "$teams" in *"5 CounterTerrorist"*"5 Terrorist"*) ;; *) echo "ABORT: teams not 5v5"; exit 1;; esac
 q "host_timescale $TS"
 

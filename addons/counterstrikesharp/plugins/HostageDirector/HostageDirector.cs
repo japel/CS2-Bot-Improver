@@ -15,6 +15,13 @@ public partial class HostageDirector : BasePlugin
 
     public override void Load(bool hotReload) => StartCoveredPickup();
 
+    // Utilities.GetPlayers() only scans slots < Server.MaxPlayers, which is 1 on a listen
+    // server started with `map` from the console, so it misses every bot. Scan controllers instead.
+    internal static List<CCSPlayerController> Players() =>
+        Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller")
+            .Where(p => p.IsValid && !p.IsHLTV && p.Connected == PlayerConnectedState.Connected)
+            .ToList();
+
     private static string Fmt(Vector? v) => v == null ? "-" : $"{v.X:F0} {v.Y:F0} {v.Z:F0}";
 
     // netcon replays recent console history to every client, and `echo` output doesn't
@@ -32,7 +39,12 @@ public partial class HostageDirector : BasePlugin
         foreach (var h in Utilities.FindAllEntitiesByDesignerName<CHostage>("hostage_entity"))
             command.ReplyToCommand($"{p} hostage #{h.Index} pos={Fmt(h.AbsOrigin)} leader={h.Leader.Value?.Index}");
 
-        foreach (var player in Utilities.GetPlayers().Where(pl => pl.IsBot && pl.PawnIsAlive))
+        var all = Players();
+        command.ReplyToCommand(
+            $"{p} players={all.Count} bots={all.Count(pl => pl.IsBot)} alive={all.Count(pl => pl.PawnIsAlive)} " +
+            $"pawns={all.Count(pl => pl.PlayerPawn.Value != null)} botsvc={all.Count(pl => pl.PlayerPawn.Value?.Bot != null)}");
+
+        foreach (var player in all.Where(pl => pl.IsBot && pl.PawnIsAlive))
         {
             var pawn = player.PlayerPawn.Value;
             var bot = pawn?.Bot;

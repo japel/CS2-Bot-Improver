@@ -61,7 +61,7 @@ public partial class HostageDirector
             .ToList();
         float now = Server.CurrentTime;
 
-        foreach (var player in Utilities.GetPlayers())
+        foreach (var player in Players())
         {
             if (!player.IsBot) continue;
             int slot = player.Slot;
