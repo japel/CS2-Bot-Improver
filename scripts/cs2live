@@ -132,7 +132,7 @@ def main():
                         continue        # replayed backlog
                     seen_live = True
                     kind, d = ev
-                    f.write(json.dumps({"t": round(time.time(), 2), "kind": kind, **d}) + "\n")
+                    f.write(json.dumps({**d, "ts": round(time.time(), 2), "kind": kind}) + "\n")
                     f.flush()
                     if not args.quiet and (txt := render(kind, d)):
                         print(txt, flush=True)
