@@ -36,5 +36,12 @@ open(out, "w", newline='').write(t[:j] + ins + t[j:])
 EOF
 cp "$STATE/gameinfo.gi.bots" "$G/gameinfo.gi"
 
+# Make the local player CSS root admin so css_* commands work over netcon (scripts/cs2con).
+ADMINS="$G/addons/counterstrikesharp/configs/admins.json"
+SID_FILE="$HOME/.config/csbot/steamid"
+if [ ! -f "$ADMINS" ] && [ -f "$SID_FILE" ]; then
+  printf '{\n  "local-owner": { "identity": "%s", "flags": ["@css/root"] }\n}\n' "$(cat "$SID_FILE")" > "$ADMINS"
+fi
+
 echo "Installed; bot mode ON. Launch options: SDL_VIDEO_DRIVER=wayland %command% -insecure"
 echo "Before online play: scripts/online.sh and remove -insecure."

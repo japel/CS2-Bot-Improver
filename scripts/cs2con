@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run CS2 console commands over netcon and print the output.
+# Needs launch options: -netconport <PORT> -netconpassword <PASS> (see ~/.config/csbot/netcon).
+#   cs2con 'bot_quota' 'status'      run commands, print ~WAIT seconds of output
+#   cs2con -f                        follow console output until Ctrl-C
+set -euo pipefail
+. "${CSBOT_NETCON:-$HOME/.config/csbot/netcon}"
+WAIT="${WAIT:-2}"
+if [ "${1:-}" = "-f" ]; then
+  { printf 'PASS %s\n' "$PASS"; sleep infinity; } | socat - TCP:127.0.0.1:"$PORT"
+  exit
+fi
+{ printf 'PASS %s\n' "$PASS"; for c in "$@"; do printf '%s\n' "$c"; done; sleep "$WAIT"; } \
+  | socat -t "$WAIT" - TCP:127.0.0.1:"$PORT"
