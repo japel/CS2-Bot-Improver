@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Stop CS2 cleanly, optionally install the current build, relaunch via Steam,
+# tile the window on a Hyprland workspace, and wait for netcon.
+#   cs2restart [--install] [--workspace N]
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INSTALL=0; WS=1
+while [ $# -gt 0 ]; do
+  case "$1" in --install) INSTALL=1;; --workspace) WS="$2"; shift;; esac; shift
+done
+. "${CSBOT_NETCON:-$HOME/.config/csbot/netcon}"
+
+running() { pgrep -x cs2 >/dev/null || pgrep -f '^[^ ]*reaper SteamLaunch AppId=730' >/dev/null; }
+
+if running; then
+  pkill -x cs2 || true
+  for _ in $(seq 1 15); do running || break; sleep 1; done
+  pgrep -x cs2 >/dev/null && pkill -9 -x cs2
+  for _ in $(seq 1 30); do running || break; sleep 1; done
+  running && { echo "CS2 / Steam launcher still running; giving up"; exit 1; }
+fi
+
+[ "$INSTALL" = 1 ] && "$ROOT/scripts/install-linux.sh" >/dev/null
+
+steam steam://rungameid/730 >/dev/null 2>&1 &
+has_window() { hyprctl clients -j | python3 -Ic 'import sys,json;sys.exit(0 if any(c["class"]=="cs2" for c in json.load(sys.stdin)) else 1)'; }
+for _ in $(seq 1 120); do has_window && break; sleep 1; done
+has_window || { echo "CS2 window did not appear"; exit 1; }
+sleep 3
+W='window = "class:cs2"'
+for c in "hl.dsp.window.fullscreen({ action = \"unset\", $W })" \
+         "hl.dsp.window.float({ action = \"unset\", $W })" \
+         "hl.dsp.window.move({ workspace = $WS, $W, silent = true })"; do
+  hyprctl dispatch "$c" >/dev/null
+done
+for _ in $(seq 1 60); do ss -ltn | grep -q ":$PORT\b" && break; sleep 2; done
+ss -ltn | grep -q ":$PORT\b" || { echo "netcon not listening on $PORT"; exit 1; }
+echo "CS2 up on workspace $WS, netcon :$PORT"

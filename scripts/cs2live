@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""Live CS2 play-by-play over netcon, plus a JSONL event recorder.
+
+Turns on log echo (sv_logecho 1, log on), then parses the server log lines streamed
+to the console. Prints a coloured ticker and appends every parsed event to a JSONL file.
+
+  cs2live                      ticker + record to ~/.local/state/csbot/events-<date>.jsonl
+  cs2live --quiet              record only
+  cs2live --out FILE           record to FILE
+"""
+import argparse, json, math, os, re, socket, sys, time
+from datetime import datetime
+from pathlib import Path
+
+NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
+
+PLAYER = r'"(?P<{0}>[^"<]*)<(?P<{0}_id>\d+)><(?P<{0}_sid>[^>]*)><(?P<{0}_team>[^>]*)>"'
+POS = r'\[(?P<{0}>-?\d+ -?\d+ -?\d+)\]'
+P = lambda tag: PLAYER.format(tag)
+Q = lambda tag: POS.format(tag)
+
+PATTERNS = [
+    ("kill", re.compile(P("a") + " " + Q("apos") + " killed " + P("v") + " " + Q("vpos") +
+                        r' with "(?P<weapon>[^"]+)"(?P<flags>.*)$')),
+    ("hostage_touch", re.compile(P("a") + r' triggered "Touched_A_Hostage"')),
+    ("hostage_rescue", re.compile(P("a") + r' triggered "Rescued_A_Hostage"')),
+    ("hostage_drop", re.compile(P("a") + " " + Q("apos") + " dropped off a hostage")),
+    ("hostage_killed", re.compile(P("a") + r' triggered "Killed_A_Hostage"')),
+    ("throw", re.compile(P("a") + r' threw (?P<nade>\w+) ' + Q("apos"))),
+    ("blind", re.compile(P("v") + r' blinded for (?P<secs>[\d.]+) by ' + P("a"))),
+    ("team_win", re.compile(r'Team "(?P<team>\w+)" triggered "(?P<reason>\w+)" \(CT "(?P<ct>\d+)"\) \(T "(?P<t>\d+)"\)')),
+    ("round_start", re.compile(r'World triggered "Round_Start"')),
+    ("map", re.compile(r'Loading map "(?P<map>[^"]+)"|Started map "(?P<map2>[^"]+)"')),
+]
+LOGLINE = re.compile(r'L \d\d/\d\d/\d{4} - [\d:.]+: (.*)$')
+
+C = {"ct": "\033[38;5;75m", "t": "\033[38;5;214m", "dim": "\033[2m", "b": "\033[1m",
+     "g": "\033[32m", "r": "\033[31m", "x": "\033[0m"}
+if not sys.stdout.isatty():
+    C = {k: "" for k in C}
+
+
+def team_col(team):
+    return C["ct"] if team == "CT" else C["t"] if team.startswith("T") else C["dim"]
+
+
+def name(m, tag):
+    return f'{team_col(m[tag + "_team"])}{m[tag]}{C["x"]}'
+
+
+def vec(s):
+    return [int(v) for v in s.split()]
+
+
+def parse(line):
+    m = LOGLINE.search(line)
+    if not m:
+        return None
+    body = m.group(1)
+    for kind, rx in PATTERNS:
+        mm = rx.search(body)
+        if mm:
+            return kind, {k: v for k, v in mm.groupdict().items() if v is not None}
+    return None
+
+
+def render(kind, d):
+    if kind == "kill":
+        if not d.get("v_team"):          # props, chickens, hostages
+            return None
+        dist = math.dist(vec(d["apos"]), vec(d["vpos"])) * 0.0254   # units -> metres
+        hs = f' {C["r"]}HS{C["x"]}' if "headshot" in d["flags"] else ""
+        extra = " ".join(f for f in ("noscope", "penetrated", "throughsmoke", "attackerblind")
+                         if f in d["flags"])
+        return f'  {name(d, "a")} ⟶ {name(d, "v")}  {C["dim"]}{d["weapon"]} {dist:.0f}m{C["x"]}{hs} {C["dim"]}{extra}{C["x"]}'
+    if kind == "hostage_touch":
+        return f'  {C["g"]}✋ {name(d, "a")}{C["g"]} picked up a hostage{C["x"]}'
+    if kind == "hostage_rescue":
+        return f'  {C["g"]}{C["b"]}★ {name(d, "a")}{C["g"]}{C["b"]} RESCUED a hostage{C["x"]}'
+    if kind == "hostage_drop":
+        return f'  {C["r"]}↓ {name(d, "a")}{C["r"]} dropped the hostage{C["x"]}'
+    if kind == "hostage_killed":
+        return f'  {C["r"]}✝ {name(d, "a")}{C["r"]} killed a hostage{C["x"]}'
+    if kind == "team_win":
+        col = C["ct"] if d["team"] == "CT" else C["t"]
+        reason = d["reason"].replace("SFUI_Notice_", "").replace("_", " ")
+        return f'{col}{C["b"]}■ {reason}{C["x"]}   CT {C["b"]}{d["ct"]}{C["x"]} : {C["b"]}{d["t"]}{C["x"]} T\n'
+    if kind == "round_start":
+        return f'{C["dim"]}── round start ──{C["x"]}'
+    if kind == "map":
+        return f'{C["b"]}== map {d.get("map") or d.get("map2")} =={C["x"]}'
+    return None   # throws/blinds are recorded, not shown
+
+
+def connect():
+    cfg = dict(l.split("=", 1) for l in NETCON.read_text().split() if "=" in l)
+    s = socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=10)
+    s.sendall(f'PASS {cfg["PASS"]}\nsv_logecho 1\nmp_logdetail 3\nlog on\n'.encode())
+    s.settimeout(None)
+    return s
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--out")
+    args = ap.parse_args()
+    state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "csbot"
+    state.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out) if args.out else state / f"events-{datetime.now():%Y%m%d}.jsonl"
+
+    # netcon replays recent history on connect; skip lines older than our start.
+    started = time.time()
+    seen_live = False
+    with out.open("a") as f:
+        while True:
+            try:
+                s = connect()
+            except OSError:
+                time.sleep(3)
+                continue
+            buf = b""
+            for chunk in iter(lambda: s.recv(65536), b""):
+                buf += chunk
+                *lines, buf = buf.split(b"\n")
+                for raw in lines:
+                    line = raw.decode("utf-8", "replace").rstrip("\r")
+                    ev = parse(line)
+                    if not ev:
+                        continue
+                    if not seen_live and time.time() - started < 1.5:
+                        continue        # replayed backlog
+                    seen_live = True
+                    kind, d = ev
+                    f.write(json.dumps({"t": round(time.time(), 2), "kind": kind, **d}) + "\n")
+                    f.flush()
+                    if not args.quiet and (txt := render(kind, d)):
+                        print(txt, flush=True)
+            time.sleep(2)   # game closed / restarted: reconnect
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

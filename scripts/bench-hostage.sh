@@ -9,11 +9,16 @@ q() { WAIT=1 "$CON" "$@" >/dev/null 2>&1; }
 
 q 'game_type 0' 'game_mode 1' "map $MAP"
 sleep 40
-q 'sv_cheats 1' 'jointeam 1' 'bot_kick all' 'mp_autoteambalance 1' 'mp_limitteams 1' \
-  'bot_join_after_player 0' 'bot_quota_mode normal' 'bot_quota 10' \
+# Exactly 5v5: explicit adds, no auto-balance (bot_quota fill drifted to 6v4).
+q 'sv_cheats 1' 'jointeam 1' 'mp_autoteambalance 0' 'mp_limitteams 0' 'bot_join_after_player 0' \
+  'bot_kick all' 'bot_quota_mode normal' 'bot_quota 0' \
   'mp_maxrounds 200' 'mp_halftime 0' 'mp_warmup_end' "css_botmod_scope $SCOPE" "$@"
-sleep 5
+sleep 2
+q bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_t bot_add_t bot_add_t bot_add_t bot_add_t
+sleep 3
 q 'css_botmod_stats_reset' 'mp_restartgame 1' "host_timescale $TS"
+sleep 3
+q 'gameui_hide' 'spec_mode 4' 'spec_next'   # first-person on a bot
 
 while :; do
   sleep 30
