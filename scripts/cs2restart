@@ -22,6 +22,11 @@ fi
 
 [ "$INSTALL" = 1 ] && "$ROOT/scripts/install-linux.sh" >/dev/null
 
+# Launching while Steam pre-compiles shaders (fossilize_replay) pops a "processing shaders /
+# skip" dialog that blocks the launch until someone clicks. Wait it out (max 10 min).
+for _ in $(seq 1 120); do pgrep -f '[u]buntu12_64/fossilize_replay' >/dev/null || break; sleep 5; done
+pgrep -f '[u]buntu12_64/fossilize_replay' >/dev/null && echo "warning: Steam still processing shaders; launch may show a dialog"
+
 steam steam://rungameid/730 >/dev/null 2>&1 &
 has_window() { hyprctl clients -j | python3 -Ic 'import sys,json;sys.exit(0 if any(c["class"]=="cs2" for c in json.load(sys.stdin)) else 1)'; }
 for _ in $(seq 1 120); do has_window && break; sleep 1; done
