@@ -18,7 +18,7 @@ q bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_ct bot_add_t bot_add_t bot
 sleep 3
 q 'css_botmod_stats_reset' 'mp_restartgame 1' "host_timescale $TS"
 sleep 3
-q 'gameui_hide' 'spec_mode 4' 'spec_next'   # first-person on a bot
+q 'mp_forcecamera 0' 'gameui_hide' 'spec_mode 2' 'spec_next'   # first-person; forcecamera 1 (competitive cfg) blocks it
 
 while :; do
   sleep 30

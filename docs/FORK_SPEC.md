@@ -17,6 +17,45 @@ Findings from running v1.4.5 and reading the source:
 | Inconsistent builds | 4 CounterStrikeSharp API versions (1.0.367–1.0.376), net8.0 + net10.0 mixed. |
 | Map-type assumptions | Bomb logic spread through general behaviour; hardcoded map checks (`isInferno`). |
 
+## 0. Status (2026-10-10)
+
+| Phase | State |
+|---|---|
+| 0 – Baseline | **Done.** Forks of CS2-Bot-Improver, CS2-BotAI, CS2-Smarter-Bot; `scripts/build.sh`, `install-linux.sh`, `online.sh`, `bots.sh`; CI green; fork build verified in-game. |
+| A – Scoped patches | **Done, default reverted.** `MapProfile`, `PatchScopes`, `css_botmod_status`, `css_botmod_scope auto\|all`, `css_botmod_patch <name> on\|off\|auto`, hostage round stats with team sizes. Benchmark showed scoping hurts, so every patch defaults to Always; hearing/investigate stay runtime-toggleable. |
+| Spike | **Done.** See §0a. Native bots *do* rescue hostages; the gap is CT commitment, not escort. |
+| B – HostageDirector | Next: CT rescuer assignment right after freeze end. Open question: native move-to entry point. |
+| C – Behaviour policy | Not started. Candidate: BotState smoke reveal (many `throughsmoke` kills). |
+
+Dev loop: CS2 runs with `-netconport 2121 -netconpassword …`; `scripts/cs2con '<cmd>'` runs console commands and prints output (password in `~/.config/csbot/netcon`). `scripts/cs2restart --install` stops CS2 cleanly, installs, relaunches and tiles it. `scripts/cs2live` records server-log events to JSONL; `scripts/analyze-hostage.py` summarises them. Spectating needs `mp_forcecamera 0` (competitive cfg sets 1).
+
+## 0a. Hostage benchmark results (cs_office, exact 5v5, host_timescale 4)
+
+Patch A/B, 20 rounds each:
+
+| hearing | investigate | CT pickup rounds | rescues | CT wins |
+|---|---|---|---|---|
+| off | off | 7/20 | 4 | 9 |
+| on | off | 13/20 | 7 | 11 |
+| off | on | 12/20 | 2 | 6 |
+| on | on (upstream) | 15/20 | 8 | 16 |
+
+(An earlier run showing 17/20 for off/off was at 6v4 — `bot_quota fill` drifted; bench now adds 5+5 explicitly.)
+
+Baseline, all patches on, 40 rounds, with `cs2live` recording:
+
+| round outcome | with pickup | without |
+|---|---|---|
+| All hostages rescued | 11 | – |
+| CTs win (elimination) | 8 | 7 |
+| Ts win (elimination) | 3 | 6 |
+| Hostages not rescued (time) | – | 6 |
+
+- 27 pickups: 11 rescued, 11 still carried at round end, only **5 carriers killed** → escort is not the main problem.
+- **18/40 rounds with no pickup at all**; 6 of those are lost purely on time.
+- First pickup 34–102 game-seconds after round start (median ~50 s): CT bots are slow to commit.
+- Kills CT 158 / T 129, T win rate 15/40 → T side is competitive; T-guard logic is lower priority than CT commitment.
+
 ## 1a. Roadmap (approach)
 
 1. **Now – Director** (this spec): keep Valve's bot AI for movement/shooting; our code scopes patches per map and assigns roles/targets on top. C# on CounterStrikeSharp.
