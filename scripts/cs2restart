@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Stop CS2 cleanly, optionally install the current build, relaunch via Steam,
 # tile the window on a Hyprland workspace, and wait for netcon.
-#   cs2restart [--install] [--workspace N]
+#   cs2restart [--install] [--workspace N] [--fullscreen]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-INSTALL=0; WS=1
+INSTALL=0; WS=1; FS=0
 while [ $# -gt 0 ]; do
-  case "$1" in --install) INSTALL=1;; --workspace) WS="$2"; shift;; esac; shift
+  case "$1" in --install) INSTALL=1;; --workspace) WS="$2"; shift;; --fullscreen) FS=1;; esac; shift
 done
 . "${CSBOT_NETCON:-$HOME/.config/csbot/netcon}"
 
@@ -39,6 +39,7 @@ for c in "hl.dsp.window.fullscreen({ action = \"unset\", $W })" \
          "hl.dsp.window.move({ workspace = $WS, $W, silent = true })"; do
   hyprctl dispatch "$c" >/dev/null
 done
+[ "$FS" = 1 ] && hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"set\", $W })" >/dev/null
 for _ in $(seq 1 60); do ss -ltn | grep -q ":$PORT\b" && break; sleep 2; done
 ss -ltn | grep -q ":$PORT\b" || { echo "netcon not listening on $PORT"; exit 1; }
 echo "CS2 up on workspace $WS, netcon :$PORT"
