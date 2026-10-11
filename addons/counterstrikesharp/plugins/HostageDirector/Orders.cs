@@ -80,8 +80,11 @@ public partial class HostageDirector
         string verb = command.GetArg(1).ToLowerInvariant();
         if (verb == "free")
         {
-            int n0 = _orders.RemoveWhere(kv => kv.Value.Leader == myPawn.Index);
-            Reply(caller, command, $"released {n0}");
+            var mine = _orders.Where(kv => kv.Value.Leader == myPawn.Index).Select(kv => kv.Key).ToHashSet();
+            _orders.RemoveWhere(kv => mine.Contains(kv.Key));
+            var released = Players().Where(p => p.IsBot && p.PlayerPawn.Value != null && mine.Contains(p.PlayerPawn.Value.Index)).ToList();
+            Acknowledge(released, "Roger, back to my own plan.");
+            Reply(caller, command, released.Count == 0 ? "no bots were under orders" : $"released {string.Join(", ", released.Select(p => p.PlayerName))}");
             return;
         }
 
@@ -100,22 +103,40 @@ public partial class HostageDirector
 
         var picks = Players()
             .Where(p => p.IsBot && p.PawnIsAlive && p.Team == caller.Team && p.PlayerPawn.Value?.AbsOrigin != null)
-            .Where(p => !_orders.ContainsKey(p.PlayerPawn.Value!.Index))
             .OrderBy(p => Dist(p.PlayerPawn.Value!.AbsOrigin!, point ?? me))
             .Take(Math.Max(1, n))
             .ToList();
         foreach (var p in picks) _orders[p.PlayerPawn.Value!.Index] = new Order(kind.Value, myPawn.Index, point);
-        Reply(caller, command, picks.Count == 0 ? $"{verb}: no free bots" : $"{verb}: {string.Join(", ", picks.Select(p => p.PlayerName))}");
+        if (picks.Count == 0) { Reply(caller, command, "no bot teammates alive"); return; }
+        Acknowledge(picks, kind switch
+        {
+            OrderKind.Follow => $"Roger, following you, {caller.PlayerName}.",
+            OrderKind.Hold => $"Roger, holding {command.GetArg(2).ToUpperInvariant()}.",
+            _ => "Roger, going for the hostage.",
+        });
+        command.ReplyToCommand($"[bots] {verb}: {string.Join(", ", picks.Select(p => p.PlayerName))}");
     }
 }
 
-// Console reply plus chat, so orders given by voice (netcon) are confirmed in game.
+// Feedback for orders given by voice (netcon): the bots that took the order answer like
+// teammates (radio "Roger that" + a team chat line); failures go to the caller's screen.
 partial class HostageDirector
 {
     private static void Reply(CCSPlayerController? caller, CommandInfo command, string msg)
     {
         command.ReplyToCommand($"[bots] {msg}");
-        if (caller?.IsValid == true) caller.PrintToChat($" {ChatColors.Green}[bots]{ChatColors.Default} {msg}");
+        if (caller?.IsValid != true) return;
+        caller.PrintToChat($" {ChatColors.Green}[bots]{ChatColors.Default} {msg}");
+        caller.PrintToCenter(msg);
+    }
+
+    private static void Acknowledge(List<CCSPlayerController> bots, string line)
+    {
+        for (int i = 0; i < bots.Count; i++)
+        {
+            if (i == 0) bots[i].ExecuteClientCommandFromServer("roger");   // one radio voice line is enough
+            bots[i].ExecuteClientCommandFromServer($"say_team {line}");
+        }
     }
 }
 

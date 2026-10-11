@@ -56,7 +56,16 @@ def send(cmd):
     cfg = dict(l.split("=", 1) for l in NETCON.read_text().split() if "=" in l)
     with socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=3) as s:
         s.sendall(f'PASS {cfg["PASS"]}\n{cmd}\n'.encode())
-        time.sleep(0.2)
+        # netcon replays old console lines first, so the game's answer is the last [bots] line
+        buf, end = b"", time.time() + 0.8
+        s.settimeout(0.2)
+        while time.time() < end:
+            try:
+                buf += s.recv(65536)
+            except socket.timeout:
+                pass
+        replies = [l for l in buf.decode("utf-8", "replace").splitlines() if "[bots]" in l]
+        return replies[-1].strip() if replies else "(no reply)"
 
 
 def transcribe(path):
@@ -69,12 +78,16 @@ def handle(text, dry):
     print(f"heard {text!r} -> {cmd or '(ignored)'}", flush=True)
     if cmd and not dry:
         try:
-            send(cmd)
+            print(f"  game: {send(cmd)}", flush=True)
         except OSError as e:
             print(f"  netcon: {e}", flush=True)
 
 
 PHONE_SINK = "csbot_phone"
+
+
+class PhoneLost(Exception):
+    pass
 
 
 def phone_mic():
@@ -115,7 +128,7 @@ def listen(dry, phone=False):
     try:
         while chunk := rec.stdout.read(frame * 2):
             if scr and scr.poll() is not None:
-                sys.exit("csbot-voice: phone disconnected (scrcpy ended)")
+                raise PhoneLost
             a = array.array("h", chunk)
             rms = (sum(x * x for x in a) / len(a)) ** 0.5
             loud = rms > max(3 * noise, 400)
@@ -153,8 +166,17 @@ def main():
         for f in args[1:]:
             handle(transcribe(f), dry=True)
     else:
+        phone = "--phone" in args
         try:
-            listen(dry="--dry-run" in args, phone="--phone" in args)
+            while True:
+                try:
+                    listen(dry="--dry-run" in args, phone=phone)
+                    break
+                except PhoneLost:
+                    # USB drops for a moment now and then: wait for the phone and carry on
+                    print("phone disconnected; waiting for it to come back ...", flush=True)
+                    subprocess.run(["adb", "wait-for-device"])
+                    time.sleep(2)
         except KeyboardInterrupt:
             pass
 
