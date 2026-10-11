@@ -96,6 +96,11 @@ def phone_mic():
     if PHONE_SINK not in subprocess.run(["pactl", "list", "short", "sinks"], capture_output=True, text=True).stdout:
         subprocess.run(["pactl", "load-module", "module-null-sink", f"sink_name={PHONE_SINK}",
                         "sink_properties=device.description=csbot-phone-mic"], check=True, capture_output=True)
+    if f"{PHONE_SINK}_mic" not in subprocess.run(["pactl", "list", "short", "sources"], capture_output=True, text=True).stdout:
+        # a real input device too (browsers hide monitor sources), so Jitsi etc. can use the phone
+        subprocess.run(["pactl", "load-module", "module-remap-source", f"master={PHONE_SINK}.monitor",
+                        f"source_name={PHONE_SINK}_mic", "source_properties=device.description=Phone-mic"],
+                       capture_output=True)
     env = dict(os.environ, SDL_AUDIO_DRIVER="pulseaudio", PULSE_SINK=PHONE_SINK)
     scr = subprocess.Popen(["scrcpy", "--no-video", "--no-window", "--no-control", "--audio-source=mic",
                             "--audio-buffer=50"], env=env, stdout=subprocess.DEVNULL)
