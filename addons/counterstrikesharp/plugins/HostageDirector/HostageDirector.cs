@@ -17,6 +17,8 @@ public partial class HostageDirector : BasePlugin
     {
         StartCoveredPickup();
         StartEscort();
+        StartSplit();
+        StartOrders();
     }
 
     // Utilities.GetPlayers() only scans slots < Server.MaxPlayers, which is 1 on a listen

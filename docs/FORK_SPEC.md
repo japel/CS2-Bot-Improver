@@ -98,6 +98,13 @@ Findings:
 - **Escort via MoveTo** (cs_italy, 40 rounds each, alternating, covered pickup on): CT wins
   30 vs 21 (per run 16/14 vs 8/13), rescue wins 17 vs 8, carriers killed 10/31 vs 20/38.
   Biggest effect so far; on by default (2 escorts per carrier).
+- **Split** (de_mirage, 40 rounds each, alternating): at freeze end 2 random T bots are
+  sent to one bomb site via MoveTo. T wins 32 vs 24 (per run 14/18 vs 12/12), CT defuses
+  5 vs 14; bunching only 44% vs 49%. Makes the T side clearly stronger; on by default.
+- **Team orders** (`css_bots follow [n] | hold <A|B> [n] | hostage [n] | free`, client
+  command): humans order bot teammates via MoveTo, re-issued every 0.5 s while the bot
+  isn't fighting. Verified: followers head to the caller. Intended as the surface for a
+  voice front end (local STT + tool-calling model sending `css_bots` over netcon).
 - Variance: identical 20-round runs gave 12 and 5 pickup rounds. Only differences seen over
   ~40+ rounds per variant mean anything.
 - Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
