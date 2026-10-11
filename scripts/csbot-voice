@@ -4,10 +4,11 @@
 
 Listens to the default microphone (pw-record), cuts speech into phrases with a simple
 energy gate, transcribes them locally with Needle's Whistle model (no cloud), and acts
-only on phrases that start with the wake word "bots". Telemetry is switched off.
+only on short command phrases (the wake word "bots" is optional). Telemetry is switched off.
 
   csbot-voice                 listen and send orders
   csbot-voice --dry-run       listen, print what would be sent
+  csbot-voice --phone         use an Android phone's mic over USB (scrcpy + adb, USB debugging on)
   csbot-voice --file x.wav    transcribe + parse one 16 kHz mono WAV, then exit
   csbot-voice --text "..."    parse a sentence, then exit (no model needed)
 
@@ -32,9 +33,11 @@ NUMS = {"one": 1, "two": 2, "both": 2, "three": 3, "four": 4, "everyone": 4, "ev
 def parse(text):
     """Return the css_bots command for a transcript, or None."""
     m = WAKE.match(text)
-    if not m:
+    t = text[m.end():].lower() if m else text.lower()
+    # Whistle often mishears "bots" (what / because ...), so a short sentence that is
+    # clearly a command counts without it; longer speech needs the wake word.
+    if not m and len(t.split()) > 8:
         return None
-    t = text[m.end():].lower()
     words = re.findall(r"[a-z0-9]+", t)
     n = next((NUMS.get(w) or int(w) for w in words if w in NUMS or (w.isdigit() and 0 < int(w) < 6)), None)
     if re.search(r"\b(cancel|free|release|stop|own thing|as you were)\b", t):
@@ -71,16 +74,48 @@ def handle(text, dry):
             print(f"  netcon: {e}", flush=True)
 
 
-def listen(dry):
+PHONE_SINK = "csbot_phone"
+
+
+def phone_mic():
+    """Stream the phone's mic (scrcpy --audio-source=mic, Android 11+) into a private null
+    sink, so it never reaches the speakers; returns (scrcpy process, monitor source name)."""
+    if PHONE_SINK not in subprocess.run(["pactl", "list", "short", "sinks"], capture_output=True, text=True).stdout:
+        subprocess.run(["pactl", "load-module", "module-null-sink", f"sink_name={PHONE_SINK}",
+                        "sink_properties=device.description=csbot-phone-mic"], check=True, capture_output=True)
+    env = dict(os.environ, SDL_AUDIO_DRIVER="pulseaudio", PULSE_SINK=PHONE_SINK)
+    scr = subprocess.Popen(["scrcpy", "--no-video", "--no-window", "--no-control", "--audio-source=mic",
+                            "--audio-buffer=50"], env=env, stdout=subprocess.DEVNULL)
+    time.sleep(3)
+    # SDL ignores PULSE_SINK, so move scrcpy's stream onto the null sink by hand: else the
+    # phone mic would play through the speakers.
+    out = subprocess.run(["pactl", "list", "sink-inputs"], capture_output=True, text=True).stdout
+    for block in out.split("Sink Input #")[1:]:
+        if 'application.name = "scrcpy"' in block:
+            subprocess.run(["pactl", "move-sink-input", block.split()[0], PHONE_SINK], capture_output=True)
+    if scr.poll() is not None:
+        sys.exit("csbot-voice: scrcpy could not start; is the phone plugged in with USB debugging "
+                 "allowed (check `adb devices`)?")
+    return scr, PHONE_SINK + ".monitor"
+
+
+def listen(dry, phone=False):
     import needle  # noqa: F401  (load the model before the first phrase)
     rate, frame = 16000, 480                         # 30 ms frames
-    rec = subprocess.Popen(["pw-record", "--rate", str(rate), "--channels", "1", "--format", "s16", "-"],
-                           stdout=subprocess.PIPE)
+    scr = None
+    if phone:
+        scr, src = phone_mic()
+        cmd = ["parec", "-d", src, f"--rate={rate}", "--channels=1", "--format=s16le", "--raw"]
+    else:
+        cmd = ["pw-record", "--rate", str(rate), "--channels", "1", "--format", "s16", "-"]
+    rec = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     noise, voiced, silent, buf = 300.0, 0, 0, array.array("h")
     pre = []                                         # keep ~0.3 s before speech starts
     print("listening; say e.g. \"bots, two of you follow me\" (Ctrl-C to stop)", flush=True)
     try:
         while chunk := rec.stdout.read(frame * 2):
+            if scr and scr.poll() is not None:
+                sys.exit("csbot-voice: phone disconnected (scrcpy ended)")
             a = array.array("h", chunk)
             rms = (sum(x * x for x in a) / len(a)) ** 0.5
             loud = rms > max(3 * noise, 400)
@@ -104,6 +139,8 @@ def listen(dry):
                 voiced, silent, pre = 0, 0, []
     finally:
         rec.terminate()
+        if scr:
+            scr.terminate()
     if rec.wait() not in (0, -15):
         sys.exit("csbot-voice: no microphone (PipeWire has no input source); plug one in or enable it in pavucontrol")
 
@@ -117,7 +154,7 @@ def main():
             handle(transcribe(f), dry=True)
     else:
         try:
-            listen(dry="--dry-run" in args)
+            listen(dry="--dry-run" in args, phone="--phone" in args)
         except KeyboardInterrupt:
             pass
 
