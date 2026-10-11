@@ -13,7 +13,11 @@ public partial class HostageDirector : BasePlugin
     public override string ModuleVersion => "0.1.0";
     public override string ModuleAuthor => "japel";
 
-    public override void Load(bool hotReload) => StartCoveredPickup();
+    public override void Load(bool hotReload)
+    {
+        StartCoveredPickup();
+        StartEscort();
+    }
 
     // Utilities.GetPlayers() only scans slots < Server.MaxPlayers, which is 1 on a listen
     // server started with `map` from the console, so it misses every bot. Scan controllers instead.
@@ -52,7 +56,8 @@ public partial class HostageDirector : BasePlugin
             command.ReplyToCommand(
                 $"{p} {player.Team,-17} {player.PlayerName,-16} pos={Fmt(pawn.AbsOrigin)} goal={Fmt(bot.GoalPosition)} " +
                 $"goalEnt={bot.GoalEntity.Value?.DesignerName ?? "-"} taskEnt={bot.TaskEntity.Value?.DesignerName ?? "-"} " +
-                $"path={bot.PathIndex} escort={bot.HostageEscortCount} waitHostage={bot.IsWaitingForHostage}");
+                $"path={bot.PathIndex} escort={bot.HostageEscortCount} waitHostage={bot.IsWaitingForHostage} " +
+                $"following={bot.IsFollowing} leader={bot.Leader.Value?.Index}");
         }
     }
 }
