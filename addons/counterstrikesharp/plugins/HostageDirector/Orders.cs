@@ -74,14 +74,14 @@ public partial class HostageDirector
     {
         if (caller?.PlayerPawn.Value is not { AbsOrigin: { } me } myPawn || !caller.PawnIsAlive)
         {
-            command.ReplyToCommand("[bots] you need to be alive on a team");
+            Reply(caller, command, "you need to be alive on a team");
             return;
         }
         string verb = command.GetArg(1).ToLowerInvariant();
         if (verb == "free")
         {
             int n0 = _orders.RemoveWhere(kv => kv.Value.Leader == myPawn.Index);
-            command.ReplyToCommand($"[bots] released {n0}");
+            Reply(caller, command, $"released {n0}");
             return;
         }
 
@@ -91,11 +91,11 @@ public partial class HostageDirector
         {
             string which = command.ArgCount > 2 ? command.GetArg(2).ToUpperInvariant() : "";
             point = BombSites().Where(s => (s.isB ? "B" : "A") == which).Select(s => s.center).FirstOrDefault();
-            if (point == null) { command.ReplyToCommand("[bots] usage: hold <A|B> [n] (bomb maps)"); return; }
+            if (point == null) { Reply(caller, command, "usage: hold <A|B> [n] (bomb maps)"); return; }
             countArg = 3;
         }
         var kind = verb switch { "follow" => OrderKind.Follow, "hold" => OrderKind.Hold, "hostage" => OrderKind.Hostage, _ => (OrderKind?)null };
-        if (kind == null) { command.ReplyToCommand("[bots] follow [n] | hold <A|B> [n] | hostage [n] | free"); return; }
+        if (kind == null) { Reply(caller, command, "follow [n] | hold <A|B> [n] | hostage [n] | free"); return; }
         int n = command.ArgCount > countArg && int.TryParse(command.GetArg(countArg), out int c) ? c : 1;
 
         var picks = Players()
@@ -105,7 +105,17 @@ public partial class HostageDirector
             .Take(Math.Max(1, n))
             .ToList();
         foreach (var p in picks) _orders[p.PlayerPawn.Value!.Index] = new Order(kind.Value, myPawn.Index, point);
-        command.ReplyToCommand($"[bots] {verb}: {string.Join(", ", picks.Select(p => p.PlayerName))}");
+        Reply(caller, command, picks.Count == 0 ? $"{verb}: no free bots" : $"{verb}: {string.Join(", ", picks.Select(p => p.PlayerName))}");
+    }
+}
+
+// Console reply plus chat, so orders given by voice (netcon) are confirmed in game.
+partial class HostageDirector
+{
+    private static void Reply(CCSPlayerController? caller, CommandInfo command, string msg)
+    {
+        command.ReplyToCommand($"[bots] {msg}");
+        if (caller?.IsValid == true) caller.PrintToChat($" {ChatColors.Green}[bots]{ChatColors.Default} {msg}");
     }
 }
 

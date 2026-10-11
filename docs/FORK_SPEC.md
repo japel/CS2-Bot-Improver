@@ -92,6 +92,13 @@ Findings:
   Bots honor the order until they see an enemy (combat preempts) or their own idle logic
   overwrites it (~12 s), so directors re-issue orders. This unlocks escorts, positioning,
   and voice/text commands (e.g. via a local tool-calling model such as cactus-compute/needle).
+- **Voice orders** (`scripts/csbot-voice`): mic -> energy gate -> Needle's Whistle STT
+  (local, telemetry off, keyword-biased) -> regex grammar -> `css_bots ...` over netcon;
+  replies are echoed to chat. Wake word "bots" in the first three words. Needle's tool
+  calling itself was too unreliable for this vocabulary (missed "cancel", "go to A",
+  "everyone" -> 1), so only its STT is used. Verified end to end (follow 2 on de_mirage).
+- **Rescue kit**: `css_hd_pickups` measured hostage pickup 4.02 s without, 1.02 s with a
+  kit (cs_office), so BotBuy's kit purchase on hostage maps stays.
 - **de_mirage baseline** (20 rounds, fixed lineups): CT 10 : T 10, bomb planted 80% of
   rounds, 13.6% of kills through smoke (upstream #146), T bots have >=4 teammates within
   600u 51% of the time vs CT 32% (bunching, upstream #121).

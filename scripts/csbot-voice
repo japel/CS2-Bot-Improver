@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Voice orders for bot teammates: say "bots, two of you follow me" and it runs
+`css_bots follow 2` in CS2 (HostageDirector Orders) over netcon.
+
+Listens to the default microphone (pw-record), cuts speech into phrases with a simple
+energy gate, transcribes them locally with Needle's Whistle model (no cloud), and acts
+only on phrases that start with the wake word "bots". Telemetry is switched off.
+
+  csbot-voice                 listen and send orders
+  csbot-voice --dry-run       listen, print what would be sent
+  csbot-voice --file x.wav    transcribe + parse one 16 kHz mono WAV, then exit
+  csbot-voice --text "..."    parse a sentence, then exit (no model needed)
+
+Commands (after "bots"):  follow me | hold A / hold B | get the hostage(s) | cancel / free
+Counts: "two of you", "three", "everyone/all" (=4); default 1, hold defaults to 2.
+Setup: python3 -m venv ~/.local/share/csbot/voice-venv && .../pip install cactus-needle
+"""
+import os, re, socket, subprocess, sys, tempfile, wave, array, time
+from pathlib import Path
+
+os.environ.update(NEEDLE_TELEMETRY="0", DO_NOT_TRACK="1", HF_HUB_DISABLE_TELEMETRY="1")
+NETCON = Path(os.environ.get("CSBOT_NETCON", Path.home() / ".config/csbot/netcon"))
+KEYWORDS = ["bots", "follow me", "hold", "alpha", "bravo", "hostage", "hostages", "cancel",
+            "two", "three", "four", "everyone", "all of you"]
+
+# "bots" within the first three words; Whistle often hears it as but / boss / box / part.
+WAKE = re.compile(r"^\W*(?:[a-z']+\W+){0,2}?(bots?|boss|box|but|part)\b[\s,.!]*", re.I)
+NUMS = {"one": 1, "two": 2, "both": 2, "three": 3, "four": 4, "everyone": 4, "everybody": 4,
+        "all": 4, "team": 4}
+
+
+def parse(text):
+    """Return the css_bots command for a transcript, or None."""
+    m = WAKE.match(text)
+    if not m:
+        return None
+    t = text[m.end():].lower()
+    words = re.findall(r"[a-z0-9]+", t)
+    n = next((NUMS.get(w) or int(w) for w in words if w in NUMS or (w.isdigit() and 0 < int(w) < 6)), None)
+    if re.search(r"\b(cancel|free|release|stop|own thing|as you were)\b", t):
+        return "css_bots free"
+    if re.search(r"\bhostages?\b", t):
+        return f"css_bots hostage {n or 1}"
+    if site := re.search(r"\b(a|alpha|b|bravo)\b(?!\s+(?:few|bit|lot))", t):
+        s = "A" if site[1] in ("a", "alpha") else "B"
+        return f"css_bots hold {s} {n or 2}"
+    if re.search(r"\b(follow|with me|come|on me)\b", t):
+        return f"css_bots follow {n or 1}"
+    return None
+
+
+def send(cmd):
+    cfg = dict(l.split("=", 1) for l in NETCON.read_text().split() if "=" in l)
+    with socket.create_connection(("127.0.0.1", int(cfg["PORT"])), timeout=3) as s:
+        s.sendall(f'PASS {cfg["PASS"]}\n{cmd}\n'.encode())
+        time.sleep(0.2)
+
+
+def transcribe(path):
+    import needle
+    return needle.transcribe(str(path), language="en", keywords=KEYWORDS)["text"].strip()
+
+
+def handle(text, dry):
+    cmd = parse(text)
+    print(f"heard {text!r} -> {cmd or '(ignored)'}", flush=True)
+    if cmd and not dry:
+        try:
+            send(cmd)
+        except OSError as e:
+            print(f"  netcon: {e}", flush=True)
+
+
+def listen(dry):
+    import needle  # noqa: F401  (load the model before the first phrase)
+    rate, frame = 16000, 480                         # 30 ms frames
+    rec = subprocess.Popen(["pw-record", "--rate", str(rate), "--channels", "1", "--format", "s16", "-"],
+                           stdout=subprocess.PIPE)
+    noise, voiced, silent, buf = 300.0, 0, 0, array.array("h")
+    pre = []                                         # keep ~0.3 s before speech starts
+    print("listening; say e.g. \"bots, two of you follow me\" (Ctrl-C to stop)", flush=True)
+    try:
+        while chunk := rec.stdout.read(frame * 2):
+            a = array.array("h", chunk)
+            rms = (sum(x * x for x in a) / len(a)) ** 0.5
+            loud = rms > max(3 * noise, 400)
+            if not voiced and not loud:
+                noise = 0.95 * noise + 0.05 * rms   # track the room's background level
+                pre = (pre + [a])[-10:]
+                continue
+            if not voiced:
+                buf = array.array("h", b"".join(p.tobytes() for p in pre))
+            voiced += 1
+            buf.extend(a)
+            silent = 0 if loud else silent + 1
+            if silent >= 20 or voiced >= 230:        # 0.6 s pause or 7 s max
+                if voiced - silent >= 8:             # at least ~0.25 s of speech
+                    with tempfile.NamedTemporaryFile(suffix=".wav", dir=os.environ.get("XDG_RUNTIME_DIR")) as f:
+                        with wave.open(f.name, "wb") as w:
+                            w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+                            w.writeframes(buf.tobytes())
+                        if text := transcribe(f.name):
+                            handle(text, dry)
+                voiced, silent, pre = 0, 0, []
+    finally:
+        rec.terminate()
+    if rec.wait() not in (0, -15):
+        sys.exit("csbot-voice: no microphone (PipeWire has no input source); plug one in or enable it in pavucontrol")
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--text"]:
+        print(parse(" ".join(args[1:])))
+    elif args[:1] == ["--file"]:
+        for f in args[1:]:
+            handle(transcribe(f), dry=True)
+    else:
+        try:
+            listen(dry="--dry-run" in args)
+        except KeyboardInterrupt:
+            pass
+
+
+if __name__ == "__main__":
+    main()
