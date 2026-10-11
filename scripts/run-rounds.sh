@@ -9,7 +9,8 @@ CON="$ROOT/scripts/cs2con"
 ROUNDS="${1:?rounds}"; OUT="${2:?outdir}"; TS="${3:-4}"; shift $(( $# < 3 ? $# : 3 ))
 mkdir -p "$OUT"
 q() { WAIT=1 "$CON" "$@" >/dev/null 2>&1; }
-rounds_done() { WAIT=2 "$CON" css_botmod_status 2>/dev/null | grep -oE 'hostage rounds=[0-9]+' | tail -1 | grep -oE '[0-9]+$' || echo 0; }
+# Count finished rounds from our own recording (works on every map type).
+rounds_done() { grep -c '"kind": "team_win"' "$OUT/events.jsonl" 2>/dev/null || echo 0; }
 
 python3 -I "$ROOT/scripts/cs2live" --quiet --out "$OUT/events.jsonl" & LIVE=$!
 ( while :; do
@@ -37,6 +38,7 @@ q "${adds[@]}"
 sleep 3
 q 'css_botmod_stats_reset' 'mp_restartgame 1'
 sleep 4
+: > "$OUT/events.jsonl"     # drop events from setup / the restart itself
 count_teams() {
   python3 -I "$ROOT/scripts/cs2cmd" css_hd_dump 2>/dev/null \
     | grep -E '^\[hd\] (CounterTerrorist|Terrorist) ' | awk '{print $2}' | sort | uniq -c \
@@ -62,5 +64,5 @@ while :; do
     echo "ABORT: no round finished in 3 minutes (warmup? paused?)"; exit 1
   fi
 done
-WAIT=3 "$CON" css_botmod_status 2>/dev/null | grep '\[botmod\]' | awk '!s[$0]++' > "$OUT/status.txt"
-grep 'hostage rounds' "$OUT/status.txt"
+python3 -I "$ROOT/scripts/cs2cmd" css_botmod_status > "$OUT/status.txt" 2>/dev/null || true
+echo "done: $(rounds_done) rounds"

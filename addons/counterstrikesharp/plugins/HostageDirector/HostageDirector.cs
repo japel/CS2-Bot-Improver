@@ -26,6 +26,24 @@ public partial class HostageDirector : BasePlugin
             .Where(p => p.IsValid && !p.IsHLTV && p.Connected == PlayerConnectedState.Connected)
             .ToList();
 
+    // CCSBot layout (Linux, libserver c7741272): m_moveToState at +0x2D8, its goal at +0x2E0,
+    // current state pointer m_state at +0x5B8 (compared against &m_idleState=+0x400 in MoveTo).
+    private static string MoveToGoal(nint bot)
+    {
+        if (bot == nint.Zero) return "-";
+        float x = BitConverter.Int32BitsToSingle(System.Runtime.InteropServices.Marshal.ReadInt32(bot + 0x2E0));
+        float y = BitConverter.Int32BitsToSingle(System.Runtime.InteropServices.Marshal.ReadInt32(bot + 0x2E4));
+        return $"{x:F0},{y:F0}";
+    }
+
+    private static string StateName(nint bot)
+    {
+        if (bot == nint.Zero) return "-";
+        nint st = System.Runtime.InteropServices.Marshal.ReadIntPtr(bot + 0x5B8);
+        long off = (long)st - (long)bot;
+        return off is >= 0 and < 0x2000 ? $"+0x{off:X}" : "ext";
+    }
+
     private static string Fmt(Vector? v) => v == null ? "-" : $"{v.X:F0} {v.Y:F0} {v.Z:F0}";
 
     // netcon replays recent console history to every client, and `echo` output doesn't
@@ -57,7 +75,8 @@ public partial class HostageDirector : BasePlugin
                 $"{p} {player.Team,-17} {player.PlayerName,-16} pos={Fmt(pawn.AbsOrigin)} goal={Fmt(bot.GoalPosition)} " +
                 $"goalEnt={bot.GoalEntity.Value?.DesignerName ?? "-"} taskEnt={bot.TaskEntity.Value?.DesignerName ?? "-"} " +
                 $"path={bot.PathIndex} escort={bot.HostageEscortCount} waitHostage={bot.IsWaitingForHostage} " +
-                $"following={bot.IsFollowing} leader={bot.Leader.Value?.Index}");
+                $"following={bot.IsFollowing} leader={bot.Leader.Value?.Index} " +
+                $"mt={MoveToGoal(bot.Handle)} state={StateName(bot.Handle)}");
         }
     }
 }

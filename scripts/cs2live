@@ -28,6 +28,8 @@ PATTERNS = [
     ("hostage_killed", re.compile(P("a") + r' triggered "Killed_A_Hostage"')),
     ("throw", re.compile(P("a") + r' threw (?P<nade>\w+) ' + Q("apos"))),
     ("blind", re.compile(P("v") + r' blinded for (?P<secs>[\d.]+) by ' + P("a"))),
+    # any other player-triggered event (Planted_The_Bomb, Defused_The_Bomb, Begin_Bomb_Defuse_*...)
+    ("triggered", re.compile(P("a") + r' triggered "(?P<event>\w+)"')),
     ("team_win", re.compile(r'Team "(?P<team>\w+)" triggered "(?P<reason>\w+)" \(CT "(?P<ct>\d+)"\) \(T "(?P<t>\d+)"\)')),
     ("round_start", re.compile(r'World triggered "Round_Start"')),
     ("map", re.compile(r'Loading map "(?P<map>[^"]+)"|Started map "(?P<map2>[^"]+)"')),
@@ -81,6 +83,9 @@ def render(kind, d):
         return f'  {C["r"]}↓ {name(d, "a")}{C["r"]} dropped the hostage{C["x"]}'
     if kind == "hostage_killed":
         return f'  {C["r"]}✝ {name(d, "a")}{C["r"]} killed a hostage{C["x"]}'
+    if kind == "triggered" and d["event"] in ("Planted_The_Bomb", "Defused_The_Bomb"):
+        verb = "planted the bomb" if d["event"] == "Planted_The_Bomb" else "DEFUSED the bomb"
+        return f'  {C["b"]}💣 {name(d, "a")}{C["b"]} {verb}{C["x"]}'
     if kind == "team_win":
         col = C["ct"] if d["team"] == "CT" else C["t"]
         reason = d["reason"].replace("SFUI_Notice_", "").replace("_", " ")
