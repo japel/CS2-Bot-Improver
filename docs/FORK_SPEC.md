@@ -81,6 +81,12 @@ Findings:
   17 vs 12, rescue wins 4 vs 6, T elimination wins 13 vs 2, time-outs 10 vs 19. BotState
   does *not* hurt hostage play; without it bots go passive. The earlier 76%-vs-30% gap came
   from random bot profiles, not BotState.
+- **cs_italy**, covered pickup on/off (alternating, 42 rounds each, BotState on): rounds
+  with pickup 37 vs 26 (each run pair 18/19 vs 12/14), rescue wins 16 vs 9, total CT
+  wins 27 vs 29. Covered pickup clearly makes CT play the objective without losing
+  strength; on cs_office the same change was only a small positive.
+- **Escort via radio** (carrier sends `playerradio followme`): no bot ever entered follow
+  mode, neither for bot- nor human-sent radio. Shipped disabled (`css_hd_escort`).
 - Variance: identical 20-round runs gave 12 and 5 pickup rounds. Only differences seen over
   ~40+ rounds per variant mean anything.
 - Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
