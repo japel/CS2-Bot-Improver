@@ -18,7 +18,9 @@ python3 -I "$ROOT/scripts/cs2live" --quiet --out "$OUT/events.jsonl" & LIVE=$!
       | awk -v t="$(date +%s.%N)" '{print t" "$0}' >> "$OUT/samples.txt" || true
     sleep 1
   done ) & SAMP=$!
-trap 'kill $LIVE $SAMP 2>/dev/null; q "host_timescale 1"' EXIT
+# Restore normal play settings on exit, so a human starting a match afterwards gets bots.
+trap 'kill $LIVE $SAMP 2>/dev/null; q "host_timescale 1" "bot_quota_mode fill" "bot_quota 10" \
+  "mp_autoteambalance 1" "mp_limitteams 1" "mp_forcecamera 1"' EXIT
 
 # warmup / match-end guards: earlier runs silently sat in warmup after mp_maxrounds was hit
 q 'mp_warmup_end' 'mp_maxrounds 200' 'mp_halftime 0' 'mp_autoteambalance 0' 'mp_limitteams 0' \
