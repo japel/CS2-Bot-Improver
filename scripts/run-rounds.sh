@@ -10,7 +10,7 @@ ROUNDS="${1:?rounds}"; OUT="${2:?outdir}"; TS="${3:-4}"; shift $(( $# < 3 ? $# :
 mkdir -p "$OUT"
 q() { WAIT=1 "$CON" "$@" >/dev/null 2>&1; }
 # Count finished rounds from our own recording (works on every map type).
-rounds_done() { grep -c '"kind": "team_win"' "$OUT/events.jsonl" 2>/dev/null || echo 0; }
+rounds_done() { local n; n=$(grep -c '"kind": "team_win"' "$OUT/events.jsonl" 2>/dev/null) || true; echo "${n:-0}"; }
 
 python3 -I "$ROOT/scripts/cs2live" --quiet --out "$OUT/events.jsonl" & LIVE=$!
 ( while :; do

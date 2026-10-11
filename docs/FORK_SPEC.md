@@ -95,6 +95,9 @@ Findings:
 - **de_mirage baseline** (20 rounds, fixed lineups): CT 10 : T 10, bomb planted 80% of
   rounds, 13.6% of kills through smoke (upstream #146), T bots have >=4 teammates within
   600u 51% of the time vs CT 32% (bunching, upstream #121).
+- **Escort via MoveTo** (cs_italy, 40 rounds each, alternating, covered pickup on): CT wins
+  30 vs 21 (per run 16/14 vs 8/13), rescue wins 17 vs 8, carriers killed 10/31 vs 20/38.
+  Biggest effect so far; on by default (2 escorts per carrier).
 - Variance: identical 20-round runs gave 12 and 5 pickup rounds. Only differences seen over
   ~40+ rounds per variant mean anything.
 - Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
