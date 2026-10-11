@@ -77,8 +77,12 @@ Findings:
   pickup** (HostageDirector suppresses +use near a free hostage while an enemy is seen):
   42 rounds each, alternating: rounds with pickup 15 vs 10, rescue wins 4 vs 2, CT wins
   20 vs 19. Small positive, not significant; kept on.
-- With BotState actually active, rounds with a pickup dropped to ~30% (vs 76% in a run
-  where BotState was blind) → BotState on/off A/B is the next experiment.
+- BotState on/off (alternating, ~42 rounds each, covered pickup on): rounds with pickup
+  17 vs 12, rescue wins 4 vs 6, T elimination wins 13 vs 2, time-outs 10 vs 19. BotState
+  does *not* hurt hostage play; without it bots go passive. The earlier 76%-vs-30% gap came
+  from random bot profiles, not BotState.
+- Variance: identical 20-round runs gave 12 and 5 pickup rounds. Only differences seen over
+  ~40+ rounds per variant mean anything.
 - Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
   CT bots lose every round on cs_office; parked as the long-term "own brain" track.
 
