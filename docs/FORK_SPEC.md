@@ -87,6 +87,14 @@ Findings:
   strength; on cs_office the same change was only a small positive.
 - **Escort via radio** (carrier sends `playerradio followme`): no bot ever entered follow
   mode, neither for bot- nor human-sent radio. Shipped disabled (`css_hd_escort`).
+- **Native move-to found**: `CCSBot::MoveTo(goal, route)` (VA 0xc1c150, unique signature,
+  see HostageDirector/Native.cs). `nav_mark`/`bot_goto_mark` do nothing in release CS2.
+  Bots honor the order until they see an enemy (combat preempts) or their own idle logic
+  overwrites it (~12 s), so directors re-issue orders. This unlocks escorts, positioning,
+  and voice/text commands (e.g. via a local tool-calling model such as cactus-compute/needle).
+- **de_mirage baseline** (20 rounds, fixed lineups): CT 10 : T 10, bomb planted 80% of
+  rounds, 13.6% of kills through smoke (upstream #146), T bots have >=4 teammates within
+  600u 51% of the time vs CT 32% (bunching, upstream #121).
 - Variance: identical 20-round runs gave 12 and 5 pickup rounds. Only differences seen over
   ~40+ rounds per variant mean anything.
 - Behavior trees (`mp_bot_ai_bt`, see `bt/`) work for scripted pickup/rescue but BT
