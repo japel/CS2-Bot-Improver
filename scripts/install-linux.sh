@@ -23,6 +23,8 @@ fi
 rsync -a --delete --exclude 'logs/' --exclude 'counterstrikesharp/configs/' "$DIST/addons/" "$G/addons/"
 rsync -a --delete "$DIST/overrides/" "$G/overrides/"
 rsync -a "$DIST/cfg/" "$G/cfg/"
+# Load our aliases at game start via autoexec.cfg (append, never overwrite a user's file).
+grep -qx 'exec csbot' "$G/cfg/autoexec.cfg" 2>/dev/null || echo 'exec csbot' >> "$G/cfg/autoexec.cfg"
 mkdir -p "$G/scripts/ai/csbot"
 rsync -a --delete "$DIST/scripts/ai/csbot/" "$G/scripts/ai/csbot/"
 

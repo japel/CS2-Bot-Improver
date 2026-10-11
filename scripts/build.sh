@@ -38,6 +38,9 @@ for p in "${OWN_PLUGINS[@]}"; do
   cp "$CACHE/build/$p/$p".{dll,deps.json,pdb} "$dest/"
 done
 
+# Our configs (play_<map> aliases etc.)
+cp "$ROOT"/cfg-csbot/*.cfg "$OUT/cfg/"
+
 # Our behavior trees (select with: mp_bot_ai_bt "scripts/ai/csbot/<name>.kv3").
 mkdir -p "$OUT/scripts/ai/csbot"
 cp -r "$ROOT"/bt/. "$OUT/scripts/ai/csbot/"
