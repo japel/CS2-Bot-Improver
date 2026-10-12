@@ -17,15 +17,15 @@ Findings from running v1.4.5 and reading the source:
 | Inconsistent builds | 4 CounterStrikeSharp API versions (1.0.367–1.0.376), net8.0 + net10.0 mixed. |
 | Map-type assumptions | Bomb logic spread through general behaviour; hardcoded map checks (`isInferno`). |
 
-## 0. Status (2026-10-10)
+## 0. Status (2026-10-12)
 
 | Phase | State |
 |---|---|
 | 0 – Baseline | **Done.** Forks of CS2-Bot-Improver, CS2-BotAI, CS2-Smarter-Bot; `scripts/build.sh`, `install-linux.sh`, `online.sh`, `bots.sh`; CI green; fork build verified in-game. |
 | A – Scoped patches | **Done, default reverted.** `MapProfile`, `PatchScopes`, `css_botmod_status`, `css_botmod_scope auto\|all`, `css_botmod_patch <name> on\|off\|auto`, hostage round stats with team sizes. Benchmark showed scoping hurts, so every patch defaults to Always; hearing/investigate stay runtime-toggleable. |
 | Spike | **Done.** See §0a. Native bots *do* rescue hostages; the gap is CT commitment, not escort. |
-| B – HostageDirector | Next: CT rescuer assignment right after freeze end. Open question: native move-to entry point. |
-| C – Behaviour policy | Not started. Candidate: BotState smoke reveal (many `throughsmoke` kills). |
+| B – HostageDirector | **Done.** Native MoveTo found; covered pickup, escort, T split (bomb maps), `css_bots` orders, voice orders (`csbot-voice`), pickup timing. Open: rescuer assignment at freeze end (not built; escort covered the measured gap). |
+| C – Behaviour policy | Not started. Smoke reveal reviewed and kept (acts like a team callout). Hearing patch default off (human-like range). |
 
 Dev loop: CS2 runs with `-netconport 2121 -netconpassword …`; `scripts/cs2con '<cmd>'` runs console commands and prints output (password in `~/.config/csbot/netcon`). `scripts/cs2restart --install` stops CS2 cleanly, installs, relaunches and tiles it. `scripts/cs2live` records server-log events to JSONL; `scripts/analyze-hostage.py` summarises them. Spectating needs `mp_forcecamera 0` (competitive cfg sets 1).
 
